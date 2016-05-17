@@ -1,0 +1,7 @@
+[bigip]
+host = "10.2.2.190"
+username = "admin"
+password = "admin"
+
+[ssl]
+ssl = false

@@ -1,0 +1,38 @@
+version: "2"
+services:
+  consul:
+    image: "progrium/consul:latest"
+    container_name: "consul"
+    hostname: "worker-${HOST_IP_E}"
+    ports:
+      - "${HOST_IP_E}:8300:8300"
+      - "${HOST_IP_E}:8301:8301"
+      - "${HOST_IP_E}:8301:8301/udp"
+      - "${HOST_IP_E}:8302:8302"
+      - "${HOST_IP_E}:8302:8302/udp"
+      - "${HOST_IP_E}:8400:8400"
+      - "${HOST_IP_E}:8500:8500"
+      - "${DNS_IP_E}:53:53/udp"
+    command: "-server -advertise ${HOST_IP_E} -join ${SERVER_IP}"
+
+
+  registrator:
+    image: gliderlabs/registrator:master
+    hostname: registrator
+    links:
+      - consul:consul
+    volumes:
+     - "/var/run/docker.sock:/tmp/docker.sock"
+    command: -internal consul://consul:8500
+
+  hellotest:
+    image: sirile/scala-boot-test
+    hostname: "hello1"
+    container_name: hello1
+    environment:
+      - SERVICE_NAME=hellov1
+      - SERVICE_TAGS=rest
+      - SERVICE_ADDRESS="${HOST_IP_E}"
+      - SERVICE_IP="${HOST_IP_E}"
+    ports:
+      - "${HOST_IP_E}:80:80"

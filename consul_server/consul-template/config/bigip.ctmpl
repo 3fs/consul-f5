@@ -1,0 +1,21 @@
+{
+"name": "C-{{timestamp}}",
+"members": [{{range $i,$a:=nodes}}{{if ne $a.Node "loadbalancer"}}
+                  {{if gt $i 1}},{{end}}{
+                    "name": "{{$a.Node}}",
+                    "address": "{{$a.Address}}"
+                  }{{end}}{{end}}
+                ],
+"pools": [{{range $i,$a:=services}}{{range .Tags}}{{if eq . "rest"}}
+    {{if gt $i 8}},{{end}}{
+        "pool": "{{$a.Name}}",
+        "fullPath": "/Common/{{$a.Name}}",
+        "members": [{{range $indx,$c := service $a.Name}}
+            {{if gt $indx 0}},{{end}}{
+              "name": "{{$c.Node}}:{{$c.Port}}",
+              "address": "{{$c.NodeAddress}}"
+            }{{end}}
+            ]
+        }{{end}}{{end}}{{end}}
+    ]   
+}

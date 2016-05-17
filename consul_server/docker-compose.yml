@@ -1,0 +1,40 @@
+version: "2"
+services:
+  consul_template:
+    build: ./consul-template
+    image: consul-template
+    container_name: consul_template
+    hostname: template
+    ports:
+      - 80:80
+    links:
+      - consul:consul
+    volumes:
+      - "./consul-template/config/bigip.json:/tmp/bigip/bigip.json"
+      - "./consul-template/config/bigip.ctmpl:/tmp/bigip/bigip.ctmpl"
+    command: "consul-template -consul=consul:8500 -config=/tmp/bigip/bigip.json"
+
+  consul:
+    image: "progrium/consul:latest"
+    container_name: consul
+    hostname: "loadbalancer"
+    ports:
+      - "${HOST_IP_E}:8300:8300"
+      - "${HOST_IP_E}:8301:8301"
+      - "${HOST_IP_E}:8301:8301/udp"
+      - "${HOST_IP_E}:8302:8302"
+      - "${HOST_IP_E}:8302:8302/udp"
+      - "${HOST_IP_E}:8400:8400"
+      - "${HOST_IP_E}:8500:8500"
+      - "${DNS_IP_E}:53:53/udp"
+    command: "-server -advertise ${HOST_IP_E} -bootstrap-expect 1"
+
+  registrator:
+    image: gliderlabs/registrator:master
+    container_name: registrator
+    hostname: registrator
+    links:
+      - consul:consul
+    volumes:
+     - "/var/run/docker.sock:/tmp/docker.sock"
+    command: -internal consul://consul:8500
