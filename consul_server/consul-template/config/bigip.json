@@ -1,5 +1,5 @@
 template {
   source = "/tmp/bigip/bigip.ctmpl"
   destination = "/tmp/bigip/consul_catalog.json"
-  command = "echo -e 'TEMPLATE: '$(date +'%M-%S-%ss')' \n' && cat /tmp/bigip/consul_catalog.json && /go/bin/f5-controller"
+  command = "/go/bin/f5-controller"
 }

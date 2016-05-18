@@ -130,3 +130,31 @@ func (box *BigIp) existsPool(item string) bool {
     }
     return false
 }
+
+func (box BigIp) compareWith(box2 BigIp) bool {
+    if len(box.Pools)!=len(box2.Pools){
+        return false
+    }
+    if len(box.Members) != len(box2.Members){
+        return false
+    }
+    for i, v := range box.Pools {
+        if box2.Pools[i].Name != v.Name || box2.Pools[i].Fullpath != v.Fullpath{
+            return false
+        }
+        if len(box2.Pools[i].Members) != len(v.Members){
+            return false
+        }
+        for e, c := range v.Members{
+            if box2.Pools[i].Members[e].Name != c.Name || box2.Pools[i].Members[e].Address != c.Address{
+                return false
+            }
+        }
+    }
+    for k, v := range box.Members {
+        if box2.Members[k].Name != v.Name || box2.Members[k].Address != v.Address {
+            return false
+        }
+    }
+    return true
+}

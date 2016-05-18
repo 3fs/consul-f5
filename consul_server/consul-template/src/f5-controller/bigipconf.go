@@ -2,13 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"flag"
 	"log"
 	"io/ioutil"
-	"os/exec"
 	"strings"
-	"time"
 	"github.com/BurntSushi/toml"
 )
 
@@ -22,27 +19,23 @@ var (
 )
 
 const(
+
 	PUT 				  = "PUT"
 	DELETE 				  = "DELETE"
 	POST 				  = "POST"
 	GET 				  = "GET"
-	BIG_IP_BACKUP		  = "/tmp/bigip/bigip_backups/"
-	BIG_IP_BACKUP_NODES   = "backup_node.json"
-	BIG_IP_BACKUP_VIRTUAL = "backup_virtual.json"
-	BIG_IP_BACKUP_POOLS   = "backup_pools.json"
-	BIGIP_VIRTUAL_FILE	  = "/tmp/bigip/big_ip_virtual.json"
-	BIGIP_NODES_FILE	  = "/tmp/bigip/big_ip_nodes.json"
-	BIGIP_POOLS_FILE	  = "/tmp/bigip/big_ip_pools.json"
+
 	CONSUL_CATALOG_FILE   = "/tmp/bigip/consul_catalog.json"
+
 	NODES 		  		  = "/node/" 
 	POOLS 		  		  = "/pool/"
 	VIRTUAL				  = "/virtual/"
-	MEM 				  = 0644
 )
 
 type Config struct {
 		Bigip map[string]string
 		Ssl map[string]bool
+		Retry map[string]int
 }
 
 func main() {
@@ -59,40 +52,16 @@ func main() {
 	//generate test data at BigIp
 	//generateTestData()
 
-	//Generate consulCatalog from consul response data
-	consulCatalog := prepareConsulCatalog(getConsulCatalog())
+	configureBigIp()
 
-	//Generate BigIpCatalog from BigIp response data
-	bigipCatalog := prepareBigIpCatalog(getBigipPoolCatalog(),getBigipNodeCatalog())
-
-	//generate catalogs Add, Delete, Update
-	boxAdd:=catalogToAdd(consulCatalog,bigipCatalog)
-	boxUpd:=catalogToUpdate(consulCatalog,bigipCatalog)
-	boxDel:=catalogToDelete(consulCatalog,bigipCatalog)
-	
-	//remove pools that needs to be deleted from Virtual Servers
-	//delete pools
-	removePoolFromVS(boxDel,getBigipVirtualCatalog())
-	deletePools(boxDel)
-	
-	//Add new nodes and pools
-	addNodes(boxAdd)
-	addPools(boxAdd)
-
-	//change members in pools
-	modifyPools(boxUpd)
-	modifyNodes(boxUpd)	
-
-	//delete nodes that are no longer avalible
-	deleteNodes(boxDel)
 }
 
 //REST call that adds pool to Bigip
 func addPools(bigip BigIp){
 	purl:=URL+POOLS
 	for _, key := range bigip.Pools {
-		resp, _:=postRequest(purl,postPool(key))
-    	fmt.Println("POST "+string(resp))
+		_, status:=postRequest(purl,postPool(key))
+    	log.Println("POST\t STATUS OF REQUEST: \t" +status+"\t POOL: \t"+key.Name)
 	}
 	modifyPools(bigip)
 }
@@ -101,8 +70,8 @@ func addPools(bigip BigIp){
 func addNodes(bigip BigIp){
 	purl:=URL+NODES
 	for _, key := range bigip.Members {		
-		resp, _:=postRequest(purl,postMember(key))
-    	fmt.Println("POST "+string(resp))
+		_, status:=postRequest(purl,postMember(key))
+    	log.Println("POST\t STATUS OF REQUEST: \t" +status+"\t NODE: \t"+key.Name)
 	}
 }
 
@@ -110,11 +79,11 @@ func addNodes(bigip BigIp){
 func modifyNodes(bigip BigIp){
 	for _, key := range bigip.Members {		
 	    deleteMember, postMember := modifyMember(key)
-	    resp, _:=deleteRequest(deleteMember)
-	    fmt.Println("DELETE "+string(resp))
+	    _, status:=deleteRequest(deleteMember)
+	    log.Println("DELETE\t STATUS OF REQUEST: \t" +status+"\t NODE: \t"+key.Name)
 	    durl:=URL+NODES
-	    resp, _=postRequest(durl,postMember)
-	    fmt.Println("POST "+string(resp))
+	    _, status=postRequest(durl,postMember)
+	    log.Println("POST\t STATUS OF REQUEST: \t" +status+"\t NODE: \t"+key.Name)
 	}
 }
 
@@ -122,16 +91,16 @@ func modifyNodes(bigip BigIp){
 func modifyPools(bigip BigIp){
 	for _, key := range bigip.Pools {			
 		purl:=URL+POOLS+key.Name
-		resp, _:=putRequest(purl,putPool(key.Members))
-		fmt.Println("PUT "+string(resp))
+		_, status:=putRequest(purl,putPool(key.Members))
+		log.Println("PUT \t STATUS OF REQUEST: \t" +status+"\t POOL: \t"+key.Name)
 	}
 }
 
 //REST call that delets pool from BigIp
 func deletePools(bigip BigIp){
 	for _, key := range bigip.Pools {
-		resp, _:=	deleteRequest(deletePool(key))
-	    fmt.Println("DELETE"+string(resp))
+		_, status:=	deleteRequest(deletePool(key))
+	    log.Println("DELETE\t STATUS OF REQUEST: \t" +status+"\t POOL: \t"+key.Name)
 	}
 }
 
@@ -139,55 +108,18 @@ func deletePools(bigip BigIp){
 func deleteNodes(bigip BigIp){
 	for _, key := range bigip.Members {		
 		deleteMember, _ := modifyMember(key)
-		resp, _:=	deleteRequest(deleteMember)
-    	fmt.Println("DELETE "+string(resp))
+		_, status:=	deleteRequest(deleteMember)
+    	log.Println("DELETE\t STATUS OF REQUEST: \t" +status+"\t NODE: \t"+key.Name)
 	}
 }
 
 //read from file
-func readFile(file string) []byte{
+func readFile(file string) ([]byte, error){
 	File, e:= ioutil.ReadFile(file)
 	if e != nil {
-        fmt.Printf("File error: %v\n", e)
-        //os.Exit(1)
+        return nil, e
     }
-    return File
-}
-
-//write to file
-func writeFile(contents []byte, filename string){
-	err := ioutil.WriteFile(filename, contents, MEM)
-    if err != nil {
-    	fmt.Println("ERROR",err)
-        panic(err)
-    }
-}
-
-//Saves file to backup directory
-func copyFile(filename string, destination string){
-	cpCmd := exec.Command("cp", "-rf", filename, destination)
-	err := cpCmd.Run()
-	if err != nil {
-		fmt.Println("ERROR",err)
-        panic(err)
-    }
-}
-
-//backup responses of BigIp
-func backupBigip(){
-	copyFile(BIGIP_NODES_FILE, BIG_IP_BACKUP +
-		timeFormat(time.Now()) + BIG_IP_BACKUP_NODES)
-    copyFile(BIGIP_POOLS_FILE, BIG_IP_BACKUP +
-    	timeFormat(time.Now()) + BIG_IP_BACKUP_POOLS)
-    copyFile(BIGIP_VIRTUAL_FILE, BIG_IP_BACKUP +
-    	timeFormat(time.Now()) + BIG_IP_BACKUP_VIRTUAL)
-}
-
-//time format for backup data
-func timeFormat(ts time.Time)string{
-	return fmt.Sprintf("%d-%02d-%02d:%02d:%02d:%02d", ts.Year(), 
-		ts.Month(), ts.Day(), ts.Hour(), 
-		ts.Minute(), ts.Second())
+    return File , nil
 }
 
 //get Bigip response for pools
@@ -215,10 +147,14 @@ func getBigipNodeCatalog() *BigipNodeCatalog{
 }
 
 //get consul response
-func getConsulCatalog() *ConsulCatalog{
+func getConsulCatalog() (*ConsulCatalog,error){
 	res:=&ConsulCatalog{}
-    json.Unmarshal(readFile(CONSUL_CATALOG_FILE), &res)
-    return res
+	file, err := readFile(CONSUL_CATALOG_FILE)
+	if err != nil{
+		return nil,err
+	}
+    json.Unmarshal(file, &res)
+    return res,nil
 }
 
 //generate BigIp catalog from consul response catalog
@@ -262,6 +198,13 @@ func prepareBigIpCatalog(res2 *BigipPoolCatalog, res *BigipNodeCatalog) BigIp{
 		pool := Pool{}
 	    pool.Name=key.Name
 	    pool.Fullpath=key.Fullpath
+
+	    for _, mem := range getPoolMembers(key.Name).Nodes {
+			member := Member{}
+		    member.Name=mem.Name
+		    member.Address=mem.Address
+		    pool.AddMemberItem(member)
+		}
 		bigip.AddPoolItem(pool)
 	}
 	return bigip
@@ -353,4 +296,75 @@ func membersToJson(catalog []Member)Members{
 	    members.AddMember(poolmember)
 	}
 	return members
+}
+
+//send new configuration to f5 BIG IP
+func applyConfiguration(consulCatalog BigIp,bigipCatalog BigIp){
+            
+	boxAdd:=catalogToAdd(consulCatalog,bigipCatalog)
+	boxUpd:=catalogToUpdate(consulCatalog,bigipCatalog)
+	boxDel:=catalogToDelete(consulCatalog,bigipCatalog)
+	
+	//remove pools that needs to be deleted from Virtual Servers
+	//delete pools
+	removePoolFromVS(boxDel,getBigipVirtualCatalog())
+	deletePools(boxDel)
+	
+	//Add new nodes and pools
+	addNodes(boxAdd)
+	addPools(boxAdd)
+
+	//change members in pools
+	modifyPools(boxUpd)
+	modifyNodes(boxUpd)	
+
+	//delete nodes that are no longer avalible
+	deleteNodes(boxDel)
+}
+
+//revert f5 BIG IP to previous consistent configuration
+func rollBack(bigipBackupCatalog BigIp, bigipRollbackCatalog BigIp){
+	applyConfiguration(bigipBackupCatalog,bigipRollbackCatalog)
+}
+
+//Prepare configuration catalogs and sends it to f5 with retrys if it fails
+func configureBigIp(){
+	//Generate consulCatalog from consul response data
+	catalog, er :=getConsulCatalog()
+	if er != nil {
+		log.Println("ERROR", er)
+	}else{
+		consulCatalog := prepareConsulCatalog(catalog)
+		//Generate BigIpCatalog from BigIp response data
+		bigipCatalog := prepareBigIpCatalog(getBigipPoolCatalog(),getBigipNodeCatalog())
+
+		err := retry(c.Retry["retry"],consulCatalog,bigipCatalog)
+		if err != 0{
+			log.Println("f5 BIG IP \tCONFIGURATION: \tFAILED - after 3 trys")
+		}else{
+			log.Println("f5 BIG IP \tCONFIGURATION: \tSUCCESS")
+	}
+	}	
+}
+
+//retry if something goes wrong and rollback to last consistent configuration if not successful
+func retry(attempts int,consulCatalog BigIp, bigipCatalog BigIp) (err int) {
+    for i := 0; ; i++ {
+        applyConfiguration(consulCatalog,bigipCatalog)
+        bigipAfterConf := prepareBigIpCatalog(getBigipPoolCatalog(),getBigipNodeCatalog())
+        if bigipAfterConf.compareWith(consulCatalog) {
+            return 0
+        }else{
+        	log.Println("\nReverting to previous configuration of f5\n")
+			rollBack(bigipCatalog,bigipAfterConf)
+        }
+
+        log.Println("\nretrying...  retry no:",i+1,"\n")
+
+        if i >= (attempts - 1) {
+            break
+        }
+        
+    }
+    return 127
 }

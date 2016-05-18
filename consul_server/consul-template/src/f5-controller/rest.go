@@ -40,7 +40,7 @@ func requestREST(REST string, url string, data []byte)([]byte, string){
 		if err != nil {
 			return nil, fmt.Sprintf("ERROR-%s", err)
 		}
-		return contents, "OK"
+		return contents, response.Status
 	}
     return nil, fmt.Sprintf("ERROR-%s", err)
 }

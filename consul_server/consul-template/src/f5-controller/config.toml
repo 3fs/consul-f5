@@ -5,3 +5,6 @@ password = "admin"
 
 [ssl]
 ssl = false
+
+[retry]
+retry = 3
