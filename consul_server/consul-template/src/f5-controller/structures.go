@@ -27,6 +27,8 @@ type BigipPoolCatalog struct {
         Fullpath string     `json:"fullPath"`
 		Name string 		`json:"name"`
 		Description string  `json:"description"`
+        Balancing string    `json:"loadBalancingMode"`
+        Monitor string      `json:"monitor"`
 	} 						`json:"items"`
 }
 
@@ -50,7 +52,10 @@ type ConsulCatalog struct {
 		} 					`json:"members"`
 		Pool string 		`json:"pool"`
         Fullpath string     `json:"fullPath"`
+        Balancing string    `json:"loadBalancingMode"`
+        Monitor string      `json:"monitor"`
 	} 						`json:"pools"`
+
 }
 
 type Member struct {
@@ -63,12 +68,15 @@ type PoolMember struct{
 }
 
 type Members struct{
+    Balancing string        `json:"loadBalancingMode"`
     Members[] PoolMember    `json:"members"`
 }
 
 type Pool struct {
         Fullpath string     `json:"fullPath"`
         Name string         `json:"name"`
+        Balancing string    `json:"loadBalancingMode"`
+        Monitor string      `json:"monitor"`
         Members []Member    `json:"members"`
 }
 

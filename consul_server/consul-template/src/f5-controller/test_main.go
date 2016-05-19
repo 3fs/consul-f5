@@ -29,6 +29,8 @@ func createData(){
     	membersToAdd:=&BigIp{}
     	mem.Name=pool.Pool
     	mem.Fullpath=pool.Fullpath
+        mem.Monitor=pool.Monitor
+        mem.Balancing=pool.Balancing
         _, status := postRequest(purl,postPool(mem))
     	log.Println("POST POOL: "+mem.Name+ " STATUS OF REQUEST: " +status)
     	for _, member :=range pool.Members{
@@ -37,7 +39,7 @@ func createData(){
     		
     	}
     	purl:=URL+POOLS+mem.Name
-        _, status =putRequest(purl,putPool(membersToAdd.Members))
+        _, status =putRequest(purl,putPool(membersToAdd.Members,mem.Balancing))
     	log.Println("PUT POOL NODES: "+mem.Name+ " STATUS OF REQUEST: " +status)
     }
 }

@@ -73,14 +73,14 @@ func postMember(key Member) []byte{
 
 //Convert Pool to json format
 func postPool(key Pool) []byte{
-	pool:=&Pool{Name:   key.Name}
+	pool:=&Pool{Name:   key.Name, Fullpath: key.Fullpath, Monitor: key.Monitor, Balancing: key.Balancing}
 	jsonPool, _ := json.Marshal(pool)
 	return jsonPool
 }
 
 //Convert []Members to json format
-func putPool(key []Member) []byte{
-	jsonPoolMembers, _ := json.Marshal(membersToJson(key))
+func putPool(key []Member,balancing string) []byte{
+	jsonPoolMembers, _ := json.Marshal(membersToJson(key,balancing))
 	return jsonPoolMembers
 }
 

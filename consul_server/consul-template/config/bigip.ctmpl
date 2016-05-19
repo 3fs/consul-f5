@@ -10,6 +10,8 @@
     {{if gt $i 8}},{{end}}{
         "pool": "{{$a.Name}}",
         "fullPath": "/Common/{{$a.Name}}",
+        "loadBalancingMode": "round-robin",
+        "monitor": "/Common/http ",
         "members": [{{range $indx,$c := service $a.Name}}
             {{if gt $indx 0}},{{end}}{
               "name": "{{$c.Node}}:{{$c.Port}}",

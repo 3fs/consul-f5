@@ -26,6 +26,7 @@ const(
 	GET 				  = "GET"
 
 	CONSUL_CATALOG_FILE   = "/tmp/bigip/consul_catalog.json"
+	//CONSUL_CATALOG_FILE   = "config/consul_catalog.json"
 
 	NODES 		  		  = "/node/" 
 	POOLS 		  		  = "/pool/"
@@ -91,7 +92,7 @@ func modifyNodes(bigip BigIp){
 func modifyPools(bigip BigIp){
 	for _, key := range bigip.Pools {			
 		purl:=URL+POOLS+key.Name
-		_, status:=putRequest(purl,putPool(key.Members))
+		_, status:=putRequest(purl,putPool(key.Members,key.Balancing))
 		log.Println("PUT \t STATUS OF REQUEST: \t" +status+"\t POOL: \t"+key.Name)
 	}
 }
@@ -172,6 +173,8 @@ func prepareConsulCatalog(res *ConsulCatalog) BigIp{
 		pool := Pool{}
 	    pool.Name=key.Pool
 	    pool.Fullpath=key.Fullpath
+	    pool.Monitor=key.Monitor
+	    pool.Balancing=key.Balancing
 	    for _, key := range key.Members {  
 	    	member := Member{}
 		    member.Name=key.Name
@@ -198,6 +201,9 @@ func prepareBigIpCatalog(res2 *BigipPoolCatalog, res *BigipNodeCatalog) BigIp{
 		pool := Pool{}
 	    pool.Name=key.Name
 	    pool.Fullpath=key.Fullpath
+	    pool.Monitor=key.Monitor
+	    pool.Balancing=key.Balancing
+
 
 	    for _, mem := range getPoolMembers(key.Name).Nodes {
 			member := Member{}
@@ -289,8 +295,8 @@ func getPoolMembers(pool string) *BigipNodeCatalog{
 }
 
 //return members from consul catalog
-func membersToJson(catalog []Member)Members{
-	members:=Members{}
+func membersToJson(catalog []Member,balancing string)Members{
+	members:=Members{Balancing: balancing}
 	for _, key := range catalog {
 		poolmember:=PoolMember{Name: key.Name}	
 	    members.AddMember(poolmember)
