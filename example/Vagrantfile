@@ -1,7 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 SERVER_IP = "192.168.0.5"
@@ -9,35 +8,32 @@ NUMBER_OF_WORKERS= 5
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "ubuntu/trusty64"
-  
-  config.vm.provision "shell", path: "~/script.sh"
-  
 
-    config.vm.define "server" do |server|
-      server.vm.network "private_network", ip: "#{SERVER_IP}"
-      server.vm.hostname = "server"
-      server.vm.synced_folder "~/consul_bigip" , "/vagrant/consul_template"
+  config.vm.provision "shell", path: "~/init.sh"
 
-      server.vm.provision "shell", inline: "printf 'export HOST_IP_E=#{SERVER_IP}\n'  >> ~/.profile"
-      server.vm.provision "shell", inline: "printf 'export DNS_IP_E=$(ip a | grep 'docker0' | grep inet | cut -d \" \" -f 6 | cut -d \"/\" -f 1)'  >> ~/.profile"
-      
-      server.vm.provision :docker
-      server.vm.provision :docker_compose, yml: "/vagrant/consul_template/consul_server/docker-compose.yml", rebuild: true, run: "always"
-    end
+  config.vm.define "server" do |server|
+    server.vm.network "private_network", ip: "#{SERVER_IP}"
+    server.vm.hostname = "server"
+    server.vm.synced_folder "~/consul_bigip" , "/vagrant/consul_template"
+
+    server.vm.provision "shell", inline: "printf 'export HOST_IP_E=#{SERVER_IP}\n'  >> ~/.profile"
+    server.vm.provision "shell", inline: "printf 'export DNS_IP_E=$(ip a | grep 'docker0' | grep inet | cut -d \" \" -f 6 | cut -d \"/\" -f 1)'  >> ~/.profile"
+
+    server.vm.provision :docker
+    server.vm.provision :docker_compose, yml: "/vagrant/consul_template/consul_server/docker-compose.yml", rebuild: true, run: "always"
+  end
   (1..NUMBER_OF_WORKERS).each do |instance_number|
-    
     config.vm.define "worker-#{instance_number}" do |worker|
       worker.vm.network "private_network", type: "dhcp"
       worker.vm.hostname = "worker-#{instance_number}"
   	  worker.vm.synced_folder "~/consul_bigip" , "/vagrant/consul_template"
-      
+
       worker.vm.provision "shell", inline: "printf 'export HOST_IP_E=$(ip a | grep 'eth1' | grep inet | cut -d \" \" -f 6 | cut -d \"/\" -f 1)\n'  >> ~/.profile"
       worker.vm.provision "shell", inline: "printf 'export DNS_IP_E=$(ip a | grep 'docker0' | grep inet | cut -d \" \" -f 6 | cut -d \"/\" -f 1)\n'  >> ~/.profile"
       worker.vm.provision "shell", inline: "printf 'export SERVER_IP=#{SERVER_IP}'  >> ~/.profile"
-      
+
       worker.vm.provision :docker
   	  worker.vm.provision :docker_compose, yml: "/vagrant/consul_template/consul_worker/docker-compose.yml", rebuild: true, run: "always"
-
     end
   end
 end
